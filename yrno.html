@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<head>
+
+    <!-- Just for testing - is used differently in Umbraco -->
+    <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:100" rel="stylesheet">
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.0.2/echarts.simple.min.js"></script>
+
+    <style>
+        .font-mont-serrat{
+             font-family: "Montserrat", sans-serif;    
+         }
+
+         img{
+             display: block; 
+             margin-left: auto; 
+             margin-right: auto;
+         }
+
+         #main{
+             width: 1140px;
+             height: 250px;
+         }
+
+         #outer-container-weather{
+             padding-top: 35px;
+         }
+
+         #sometext{
+             display: none;
+         }
+
+     </style>
+</head>
+<body>
+
+<!-- Html part - begin -->
+
+<div class="item">
+    <div class="row image-item-row-full">
+        <div class="col-md-12">
+            <div id="outer-container-weather" class="container" data-location=@locationFull>
+                <div id="mensviventer" class="row">
+                    <h1 class="text-center" style="padding-top: 100px;">Venter på vejret...</h1>
+                </div>
+                <div id="sometext" class="row">
+                    <div id="homeColumn" class="col-md-3" style="border: solid 2px grey; height: 415px; background-image: linear-gradient(to bottom, rgba(1, 87, 155, 1), rgba(1, 87, 155, 0));">
+
+                    </div>
+                </div>
+                <div id="main" class="row">
+                    <!-- row for chart -->
+                </div>
+                <p style="color: grey;">Dataene leveres af YR.NO</p>
+            </div>
+            <p id="measures"></p>
+        </div>
+    </div>
+
+    <script>
+
+        // Variables for document targets - html tags, id's etc.
+        //let rowForSmallColumns = document.getElementById('sometext');
+        //let columnForCurrentWeather = document.getElementById('homeColumn');
+
+        var rowForSmallColumns = document.getElementById('sometext');
+        var columnForCurrentWeather = document.getElementById('homeColumn');
+
+        let measure = document.getElementById('measures'); // ??
+
+        let outerContainerWeather = document.getElementById('outer-container-weather'); // ??
+
+        // Lcation based on Umbraco Model Property 'Location'
+        let fullLocation = document.getElementById('outer-container-weather');
+
+        // Arrays for chart - temp & timeofday
+        let arrayTemperatures = new Array();
+        let arrayTimeOfDay = new Array();
+
+        // Array from Timeseries data from response
+        let timeseriesArray = new Array();
+
+        // Array for localstorage objects (each hour forecast)
+        let arrayLocalObjects = new Array();
+
+        // Array index of current hour
+        let currentHourIndex = 0;
+
+        // Class for Weather data
+        let WeatherData = class {
+
+            constructor(cw, temp, wd, ws, ft){
+                this.currentWeather = cw;
+                this.temperature = temp;
+                this.windDirection = wd;
+                this.windSpeed = ws;
+                this.fromTime = ft;
+            }
+
+        }
+
+        //Render chart with temperatures
+        let renderChart = () => {
+
+            // based on prepared DOM, initialize echarts instance
+            let myChart = echarts.init(document.getElementById('main'));
+
+            // specify chart configuration item and data
+            var option = {
+                title: {
+                    text: 'YR.NO Vejrudsigt'
+                },
+                grid: {
+                left: '2%',
+                right: '0%'
+                },
+                tooltip: {},
+                legend: {
+                    data:['Sales']
+                },
+                xAxis: {
+                    data: JSON.parse(localStorage.getItem('timeOfDay'))
+                },
+                yAxis: {},
+                series: [{
+                    name: 'Sales',
+                    type: 'line',
+                    data: JSON.parse(localStorage.getItem('temperatures'))
+                }]
+            };
+
+            // use configuration item and data specified to show chart
+            myChart.setOption(option);
+
+        }
+
+        //Render output of weather forecast
+        let renderWeatherForecast = () => {
+
+            $('#mensviventer').css('display', 'none');
+            $('#sometext').css('display', 'inherit');
+
+            let forecast = JSON.parse(localStorage.getItem('weatherData'));
+
+            columnForCurrentWeather.innerHTML += '<h1 class="grey text-center pt-3 font-mont-serrat" style="color: #f5f6f5;">Randers</h1><img style="display: block; margin-top: 2px; margin-left: auto; margin-right: auto; height: 100px; width: 100px;" src="http://signageserver.dk/Images/weatherImg2021/' + forecast[0]['currentWeather'] + '.png"><h1 class="text-center font-mont-serrat" style="color: #f5f6f5; margin-top: 10px;">' + forecast[0]['temperature'] + '&#8451</h1><img style="height: 50px; width: 50px;" src="http://signageserver.dk/Images/icons/' + forecast[0]['windDirection'] + '.png"><h3 class="text-center" style="color: #000000; margin-top: 10px;">' + forecast[0]['windDirection'] + '</h3><h3 class="text-center" style="color: 000000; margin-top: 10px;">' + forecast[0]['windSpeed'] + ' mps</h3>'
+            //columnForCurrentWeather.innerHTML += '<h1 class="grey text-center pt-3 font-mont-serrat" style="color: #f5f6f5;">Randers</h1><img style="display: block; margin-top: 2px; margin-left: auto; margin-right: auto; height: 100px; width: 100px;" src="http://signageserver.dk/Images/weatherimg/' + forecast[0]['currentWeather'] + '.png"><h1 class="text-center font-mont-serrat" style="color: #f5f6f5; margin-top: 10px;">' + forecast[0]['temperature'] + '&#8451</h1><img style="height: 50px; width: 50px;" src="http://signageserver.dk/Images/icons/' + forecast[0]['windDirection'] + '.png"><h3 class="text-center" style="color: #000000; margin-top: 10px;">' + forecast[0]['windDirection'] + '</h3><h3 class="text-center" style="color: 000000; margin-top: 10px;">' + forecast[0]['windSpeed'] + ' mps</h3>';
+
+            for( i=1; i < forecast.length; i++ ){
+
+                rowForSmallColumns.innerHTML += '<div class="col-md-1" style="background-image: linear-gradient(to bottom, #f5f6f5, #FFFFFF); height: 415px; border-right: solid 2px grey; border-bottom: solid 2px grey; border-top: solid 2px grey;"><p class="text-center pt-3" style="color: #000000;">' + forecast[i]['fromTime'] + '</p><img style="max-width: 48px; max-height: 48px;" class="pt-4" src="http://signageserver.dk/Images/weatherImg2021/' + forecast[i]['currentWeather'] + '.png"><h3 style="color: #000000; font-mont-serrat" >' + forecast[i]['temperature'] + '&#8451</h3><div style="position: absolute; bottom: 0px;"><img src="http://signageserver.dk/Images/icons/' + forecast[i]['windDirection'] + '.png"><h5 class="text-center" style="color: #000000;font-weight: 200;">' + forecast[i]['windDirection'] + '</h5><h5 class="text-center" style="color: #000000; font-weight: 200;">' + forecast[i]['windSpeed'] + ' mps</h5></div>'
+                //rowForSmallColumns.innerHTML += '<div class="col-md-1" style="background-image: linear-gradient(to bottom, #f5f6f5, #FFFFFF); height: 415px; border-right: solid 2px grey; border-bottom: solid 2px grey; border-top: solid 2px grey;"><p class="text-center pt-3" style="color: #000000;">' + forecast[i]['fromTime'] + '</p><img style="max-width: 48px; max-height: 48px;" class="pt-4" src="http://signageserver.dk/Images/weatherimg/' + forecast[i]['currentWeather'] + '.png"><h3 style="color: #000000; font-mont-serrat" >' + forecast[i]['temperature'] + '&#8451</h3><div style="position: absolute; bottom: 0px;"><img src="http://signageserver.dk/Images/icons/' + forecast[i]['windDirection'] + '.png"><h5 class="text-center" style="color: #000000;font-weight: 200;">' + forecast[i]['windDirection'] + '</h5><h5 class="text-center" style="color: #000000; font-weight: 200;">' + forecast[i]['windSpeed'] + ' mps</h5></div>';
+
+            }
+
+            renderChart();
+
+        }
+
+        // Create array of local objects
+        let createArrayLocalObjects = (currentHourIndex, timeseriesArray) => {
+
+            for( i = currentHourIndex; i < (currentHourIndex + 10); i++){
+
+                let newWeatherData = new WeatherData(timeseriesArray[i]['data']['next_1_hours']['summary']['symbol_code'], timeseriesArray[i]['data']['instant']['details']['air_temperature'], getWindDirection(timeseriesArray[i]['data']['instant']['details']['wind_from_direction']), timeseriesArray[i]['data']['instant']['details']['wind_speed'], sliceHourContent(timeseriesArray[i]['time']));
+
+                arrayLocalObjects.push(newWeatherData);
+
+                arrayTemperatures.push(parseInt(timeseriesArray[i]['data']['instant']['details']['air_temperature']));
+                arrayTimeOfDay.push(sliceHourContent(timeseriesArray[i]['time']));
+
+            }
+
+            localStorage.setItem('temperatures', JSON.stringify(arrayTemperatures));
+
+            localStorage.setItem('timeOfDay', JSON.stringify(arrayTimeOfDay));
+
+            localStorage.setItem('weatherData', JSON.stringify(arrayLocalObjects));
+
+        }
+
+        // Get wind direction from degrees
+        let getWindDirection = (windDirection) => {
+
+            let wd = windDirection;
+
+            switch (true) {
+                case (wd >= 337.5 && wd < 22.5):
+
+                    return 'n';
+
+                    break;
+                case (wd >= 22.5 && wd < 67.5):
+
+                    return 'ne';
+
+                break;
+                case (wd >= 67.5 && wd < 112.5):
+
+                    return 'e';
+
+                    break;
+                case (wd >= 112.5 && wd < 157.5):
+
+                    return 'se';
+
+                break;
+                case (wd >= 157.5 && wd < 202.5):
+
+                    return 's';
+
+                    break;
+                case (wd >= 202.5 && wd < 247.5):
+
+                    return 'sw';
+
+                break;
+                case (wd >= 247.5 && wd < 292.5):
+
+                    return 'w';
+
+                    break;
+                case (wd >= 292.5 && wd < 337.5):
+
+                    return 'sw';
+
+                break;
+
+
+                default:
+                    break;
+            }
+
+        }
+
+        // Slice Time content to get hour
+        let sliceHourContent = (hourParam) => {
+            return hourParam.split('T').pop().split(':')[0];
+        }
+
+        // Get current hour index
+        let getCurrentHourIndex = (timeseriesArray) => {
+
+           for( i=0; i < timeseriesArray.length; i++ ){
+
+                let cH = timeseriesArray[i]['time'].split('T').pop().split(':')[0];
+
+                if(cH == getCurrentHour()){
+
+                    return currentHourIndex = i;
+                }
+
+           }
+
+        }
+
+        //Fetch new forecast data - has to be async / await because of delayed response time
+        let getNewForecastData = async () => {
+
+            timeseriesArray = await fetch('https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=56.460449&lon=10.036367')
+                .then(response => response.json())
+                .then(data => data);
+
+            currentHourIndex = getCurrentHourIndex(timeseriesArray['properties']['timeseries']);
+
+            createArrayLocalObjects(currentHourIndex, timeseriesArray['properties']['timeseries']);
+
+            renderWeatherForecast();
+        }
+
+        // Get current hour function
+        let getCurrentHour = () => {
+
+            let newDate = new Date();
+            let currentHour = newDate.getHours();
+
+            return currentHour;
+
+        }
+
+        // Check time function !? Get current time, check for localstorage variable and create if none, compare with current and 1: fetch new - or - 2: display from localstorage
+        let checkTime = () => {
+
+            let d = new Date();
+            let currentTime = d.getTime();
+
+            if(localStorage['oldTime'] == 0 || localStorage['oldTime'] == null){
+                localStorage.setItem('oldTime', currentTime);
+
+                // Run with fetch ! We dont have any values yet !!!
+
+            } else {
+
+                let oldTime = localStorage.getItem('oldTime');
+
+                // Dev stuff
+                console.log(oldTime);
+
+                if((currentTime - oldTime) >= 500000){
+                    localStorage.setItem('oldTime', currentTime);
+
+                    // Dev stuff
+                    console.log('Use fetch !!!!');
+
+                    // run with fetch
+                    getNewForecastData();
+
+                } else {
+
+                    // run with localstorage variables
+
+                    // Dev stuff
+                    console.log('Dont use Fetch ! Use localstorage !!');
+
+                    renderWeatherForecast();
+
+                }
+
+            }
+
+        };
+
+        checkTime();
+
+
+    </script>
+
+
+
+</div>
+<!-- Html part - end -->
+
+</body> 
